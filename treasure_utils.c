@@ -20,20 +20,22 @@ typedef struct{
 
 //Struct to represent the GOODS section of the treasure table
 typedef struct{
-  Treasure base_amount_treasure;
-  Treasure gems_treasure;
-  Treasure art_treasure;
+  Treasure *base_amount_treasure;
+  Treasure *gems_treasure;
+  Treasure *art_treasure;
 }GoodsTreasure;
 
 void initialize_treasure(Treasure *treasure, TreasureClassification t_classification, int size_percentages, int size_parameters, int* percentages, int* table){
-  // printf("Initialize Percent Size.\n");
   treasure->size_percentages = size_percentages;
-  // printf("Initialize Size Parameters.\n");
   treasure->size_parameters = size_parameters;
-  // printf("Initialize Percentages.\n");
   treasure->percentages = percentages;
-  // printf("Initialize Table.\n");
   treasure->table = table;
+}
+
+void initialize_goods_treasure(GoodsTreasure *treasure, Treasure *base_treasure, Treasure *gems_treasure, Treasure *art_treasure){
+  treasure->base_amount_treasure = base_treasure;
+  treasure->gems_treasure = gems_treasure;
+  treasure->art_treasure = art_treasure;
 }
 
 void initialize_empty_base_treasure(Treasure *treasure, TreasureClassification t_classification){
@@ -51,6 +53,7 @@ void initialize_empty_goods_treasure(GoodsTreasure *treasure, TreasureClassifica
   initialize_empty_base_treasure(base_treasure, GOODS);
   initialize_empty_treasure(gems_treasure);
   initialize_empty_treasure(art_treasure);
+  initialize_goods_treasure(treasure, base_treasure, gems_treasure, art_treasure);
 }
 
 int write_file_to_table(int* size_pointer_row, int* size_pointer_column, int** array_pointer, char *line_buffer, int max_buffer_size, FILE *file_pointer){
@@ -97,6 +100,36 @@ int write_file_to_table(int* size_pointer_row, int* size_pointer_column, int** a
   }
   return 0;
 }
+int verify_treasure_struct(Treasure treasure){
+  int i,j;
+  printf("TREASURE SIZE_PERCENTAGES: %d\n", treasure.size_percentages);
+  printf("TREASURE_PERCENTAGES: ");
+  for(i = 0; i < treasure.size_percentages; i++){
+    if(&treasure.percentages[i] == NULL){
+      printf("TREASURE_PERCENTAGES AT %d IS NULL. ABORTING SEQUENCE.\n",i);
+      return 0;
+    }
+    printf("%d ", treasure.percentages[i]);
+  }
+  printf("\n TREASURE size_parameters: %d\n", treasure.size_parameters);
+  printf("TREASURE_PARAMETERS: \n");
+  for(i = 0; i < treasure.size_percentages; i++){
+    if(&treasure.table[(i*treasure.size_parameters)+0] == NULL){
+      printf("MEMORY_ADDRESS AT INDEX %d OF TREASURE.TABLE IS NULL. ABORTING SEQUENCE.\n",((i*treasure.size_parameters)+0));
+      return 0;
+    }
+    printf("%d", treasure.table[(i*treasure.size_parameters)+0]);
+    for(j = 1; j < treasure.size_parameters; j++){
+      if(&treasure.table[(i*treasure.size_parameters)+j] == NULL){
+        printf("MEMORY_ADDRESS AT INDEX %d OF TREASURE.TABLE IS NULL. ABORTING SEQUENCE.\n",((i*treasure.size_parameters)+j));
+        return 0;
+      }
+      printf(", %4d", treasure.table[(i*treasure.size_parameters)+j]);
+    }
+    printf("\n");
+  }
+  return 0;
+}
 
 /**
 * read_file_to_struct is a function that converts a file into an array of
@@ -110,8 +143,23 @@ int read_file_to_struct(int num_levels, TreasureClassification t_classification,
     printf("File does not exist. Exiting program.\n");
     return 0;
   }
+  if(num_levels < 0){
+    return 0;
+  }
+  if(t_classification < 0 || t_classification > 2){
+    return 0;
+  }
+  // switch(t_classification){
+  //   case NO_CLASS:
+  //   break;
+  //   case COINS:
+  //
+  //   case GOODS:
+  //   case ITEMS:
+  //   default:
+  // }
   //These values will be used as iterators in for loops. Generic naming is to maintain DRY code.
-  int level, i, j;
+  int level;
   //Allocate memory for an array of Treasure structures.
   Treasure *treasure = (Treasure *)malloc(sizeof(Treasure) * num_levels);
   int max_buffer_size = 256;
@@ -135,39 +183,11 @@ int read_file_to_struct(int num_levels, TreasureClassification t_classification,
   //Verify that each struct received the proper information from the file.
   for(level = 0; level < num_levels; level++){
     printf("VERIFICATION STEP: LEVEL %d\n", level+1);
-    printf("TREASURE SIZE_PERCENTAGES: %d\n", treasure[level].size_percentages);
-    printf("TREASURE_PERCENTAGES: ");
-    for(i = 0; i < treasure[level].size_percentages; i++){
-      if(&treasure[level].percentages[i] == NULL){
-        printf("TREASURE_PERCENTAGES AT %d IS NULL. ABORTING SEQUENCE.\n",i);
-        return 0;
-      }
-      printf("%d ", treasure[level].percentages[i]);
-    }
-    printf("\n TREASURE size_parameters: %d\n", treasure[level].size_parameters);
-    printf("TREASURE_PARAMETERS: \n");
-    for(i = 0; i < treasure[level].size_percentages; i++){
-      printf("%d", treasure[level].table[(i*treasure[level].size_parameters)+0]);
-      for(j = 1; j < treasure[level].size_parameters; j++){
-        printf(", %4d", treasure[level].table[(i*treasure[level].size_parameters)+j]);
-      }
-      printf("\n");
-    }
+    verify_treasure_struct(treasure[level]);
     printf("VERIFICATION FOR LEVEL %d COMPLETE.\n",level+1);
   }
   return 0;
 }
-
-
-// int populate_struct(int num_levels, TreasureClassification t_classification, FILE *file_pointer){
-//   switch(t_classification){
-//     case NO_CLASS:
-//     case COINS:
-//     case GOODS:
-//     case ITEMS:
-//     default:
-//   }
-// }
 
 int main(void){
   FILE *file_pointer;
