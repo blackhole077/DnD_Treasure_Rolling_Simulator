@@ -53,6 +53,51 @@ void initialize_empty_goods_treasure(GoodsTreasure *treasure, TreasureClassifica
   initialize_empty_treasure(art_treasure);
 }
 
+int write_file_to_table(int* size_pointer_row, int* size_pointer_column, int** array_pointer, char *line_buffer, int max_buffer_size, FILE *file_pointer){
+  int i,j,value, num_rows;
+  if(size_pointer_row == NULL){
+    num_rows = 1;
+  }
+  else{
+    num_rows = *size_pointer_row;
+  }
+  if((fgets(line_buffer, sizeof(line_buffer), file_pointer) != NULL)){
+    // fputs(line_buffer, stdout);
+    // fputs("\n|*\n",stdout);
+    // treasure[level].size_percentages = (int)strtol(line_buffer, &line_buffer, 10);
+    *size_pointer_column = (int) strtol(line_buffer, &line_buffer, 10);
+    // printf("Value in struct: %d\n", treasure[level].size_percentages);
+  }
+  else{
+    printf("line_buffer ran into a NULL POINTER EXCEPTION.\n");
+    return 0;
+  }
+  // printf("Fetching Percentages...\n");
+  //Fetch the percentages themselves and store them in the struct
+  (*array_pointer) = (int*) malloc(sizeof(int) * (num_rows * (*size_pointer_column)));
+  // printf("Allocated %lf integers worth of memory.\n", (sizeof(array_pointer)/(double)(num_rows * (*size_pointer_column))));
+  for(i = 0; i < num_rows; i++){
+    if((fgets(line_buffer, max_buffer_size-1, file_pointer) != NULL)){
+      printf("Buffer: ");
+      fputs(line_buffer,stdout);
+      printf("\n");
+      char* token;
+      token = strtok(line_buffer, ",");
+      for(j = 0; j < *size_pointer_column; j++){
+        value = strtol(token, &token, 10);
+        printf("Writing value %d to index %d in table...\n", value, ((i*(*size_pointer_column)) + j));
+        (*array_pointer)[(i*(*size_pointer_column)) + j] = value;
+        token = strtok(NULL,",");
+      }
+    }
+    else{
+      printf("line_buffer ran into a NULL POINTER EXCEPTION.\n");
+      return 0;
+    }
+  }
+  return 0;
+}
+
 /**
 * read_file_to_struct is a function that converts a file into an array of
 * Treasure structures of an appropriate classification (designated by t_classification)
@@ -69,81 +114,21 @@ int read_file_to_struct(int num_levels, TreasureClassification t_classification,
   int level, i, j;
   //Allocate memory for an array of Treasure structures.
   Treasure *treasure = (Treasure *)malloc(sizeof(Treasure) * num_levels);
+  int max_buffer_size = 256;
+  char *line_buffer = (char *)malloc(sizeof(char) * max_buffer_size);
+  if(line_buffer == NULL){
+    printf("Error allocating memory. Exiting program...\n");
+    return 0;
+  }
   for(level = 0; level < num_levels; level++){
-      printf("initializing empty treasure...\n");
-      initialize_empty_treasure(&treasure[level], t_classification);
-      int max_buffer_size = 256;
-      char *line_buffer = (char *)malloc(sizeof(char) * max_buffer_size);
-      line_buffer[strcspn(line_buffer, "\r\n")] = 0;
+    printf("initializing empty treasure...\n");
+    initialize_empty_base_treasure(&treasure[level], t_classification);
 
-      if(line_buffer == NULL){
-        printf("Error allocating memory. Exiting program...\n");
-        return 0;
-      }
-      // printf("Fetching Percentage Size...\n");
-      //Fetch the size of the percentage array
-      if((fgets(line_buffer, sizeof(line_buffer), file_pointer) != NULL)){
-        // fputs(line_buffer, stdout);
-        // fputs("\n|*\n",stdout);
-        treasure[level].size_percentages = (int)strtol(line_buffer, &line_buffer, 10);
-        // printf("Value in struct: %d\n", treasure[level].size_percentages);
-      }
-      else{
-        printf("line_buffer ran into a NULL POINTER EXCEPTION.\n");
-        return 0;
-      }
-      // printf("Fetching Percentages...\n");
-      //Fetch the percentages themselves and store them in the struct
-      treasure[level].percentages = (int*) malloc(sizeof(int) * treasure[level].size_percentages);
-      if((fgets(line_buffer, max_buffer_size-1, file_pointer) != NULL)){
-        char* token;
-        // fputs(line_buffer, stdout);
-        // fputs("|*\n",stdout);
-        token = strtok(line_buffer, ",");
-        for(i = 0; i < treasure[level].size_percentages; i++){
-          treasure[level].percentages[i] = strtol(token, &token, 10);
-          // printf("Value in struct: %d\n", treasure[level].percentages[i]);
-          token = strtok(NULL,",");
-        }
-      }
-      else{
-        printf("line_buffer ran into a NULL POINTER EXCEPTION.\n");
-        return 0;
-      }
-      // printf("Fetching Parameters Size...\n");
-      //Fetch the size of the parameters for the struct
-      if((fgets(line_buffer, max_buffer_size-1, file_pointer) != NULL)){
-        // fputs(line_buffer, stdout);
-        // fputs("|*\n",stdout);
-        treasure[level].size_parameters = (int) strtol(line_buffer, &line_buffer, 10);
-      }
-      else{
-        printf("line_buffer ran into a NULL POINTER EXCEPTION.\n");
-        return 0;
-      }
-      int composite = treasure[level].size_percentages * treasure[level].size_parameters;
-      printf("size_percentages * size_parameters = %d\n", composite);
-     treasure[level].table = (int*)malloc(sizeof(int) *
-    (treasure[level].size_percentages * treasure[level].size_parameters));
-    for(i = 0; i < treasure[level].size_percentages; i++){
-      if((fgets(line_buffer, max_buffer_size-1, file_pointer) != NULL)){
-        printf("Buffer: ");
-        fputs(line_buffer,stdout);
-        printf("\n");
-        char* token;
-        token = strtok(line_buffer, ",");
-        for(j = 0; j < treasure[level].size_parameters; j++){
-          int value = strtol(token, &token, 10);
-          printf("Writing value %d to index %d in table...\n", value, ((i*treasure[level].size_parameters) + j));
-          treasure[level].table[(i*treasure[level].size_parameters) + j] = value;
-          token = strtok(NULL,",");
-        }
-      }
-      else{
-        printf("line_buffer ran into a NULL POINTER EXCEPTION.\n");
-        return 0;
-      }
-    }
+    line_buffer[strcspn(line_buffer, "\r\n")] = 0;
+    // printf("Fetching Percentage Size...\n");
+    //Fetch the size of the percentage array
+    write_file_to_table(NULL, &treasure[level].size_percentages, &treasure[level].percentages, line_buffer, max_buffer_size, file_pointer);
+    write_file_to_table(&treasure[level].size_percentages, &treasure[level].size_parameters, &treasure[level].table, line_buffer, max_buffer_size, file_pointer);
     printf("Marker for GDB\n");
   }//This marks the end of a treasure struct creation.
 
@@ -153,6 +138,10 @@ int read_file_to_struct(int num_levels, TreasureClassification t_classification,
     printf("TREASURE SIZE_PERCENTAGES: %d\n", treasure[level].size_percentages);
     printf("TREASURE_PERCENTAGES: ");
     for(i = 0; i < treasure[level].size_percentages; i++){
+      if(&treasure[level].percentages[i] == NULL){
+        printf("TREASURE_PERCENTAGES AT %d IS NULL. ABORTING SEQUENCE.\n",i);
+        return 0;
+      }
       printf("%d ", treasure[level].percentages[i]);
     }
     printf("\n TREASURE size_parameters: %d\n", treasure[level].size_parameters);
@@ -170,15 +159,15 @@ int read_file_to_struct(int num_levels, TreasureClassification t_classification,
 }
 
 
-int populate_struct(int num_levels, TreasureClassification t_classification, FILE *file_pointer){
-  switch(t_classification){
-    case NO_CLASS:
-    case COINS:
-    case GOODS:
-    case ITEMS:
-    default:
-  }
-}
+// int populate_struct(int num_levels, TreasureClassification t_classification, FILE *file_pointer){
+//   switch(t_classification){
+//     case NO_CLASS:
+//     case COINS:
+//     case GOODS:
+//     case ITEMS:
+//     default:
+//   }
+// }
 
 int main(void){
   FILE *file_pointer;
