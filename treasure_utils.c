@@ -56,8 +56,15 @@ void initialize_empty_goods_treasure(GoodsTreasure *treasure, TreasureClassifica
   initialize_goods_treasure(treasure, base_treasure, gems_treasure, art_treasure);
 }
 
-int write_file_to_table(int* size_pointer_row, int* size_pointer_column, int** array_pointer, char *line_buffer, int max_buffer_size, FILE *file_pointer){
+int write_file_to_table(int* size_pointer_row, int* size_pointer_column, int** array_pointer, FILE *file_pointer){
   int i,j,value, num_rows;
+  int max_buffer_size = 256;
+  char *line_buffer = (char *)malloc(sizeof(char) * max_buffer_size);
+  if(line_buffer == NULL){
+    printf("Error allocating memory. Exiting program...\n");
+    return 0;
+  }
+  line_buffer[strcspn(line_buffer, "\r\n")] = 0;
   if(size_pointer_row == NULL){
     num_rows = 1;
   }
@@ -81,14 +88,14 @@ int write_file_to_table(int* size_pointer_row, int* size_pointer_column, int** a
   // printf("Allocated %lf integers worth of memory.\n", (sizeof(array_pointer)/(double)(num_rows * (*size_pointer_column))));
   for(i = 0; i < num_rows; i++){
     if((fgets(line_buffer, max_buffer_size-1, file_pointer) != NULL)){
-      printf("Buffer: ");
-      fputs(line_buffer,stdout);
-      printf("\n");
+      // printf("Buffer: ");
+      // fputs(line_buffer,stdout);
+      // printf("\n");
       char* token;
       token = strtok(line_buffer, ",");
       for(j = 0; j < *size_pointer_column; j++){
         value = strtol(token, &token, 10);
-        printf("Writing value %d to index %d in table...\n", value, ((i*(*size_pointer_column)) + j));
+        // printf("Writing value %d to index %d in table...\n", value, ((i*(*size_pointer_column)) + j));
         (*array_pointer)[(i*(*size_pointer_column)) + j] = value;
         token = strtok(NULL,",");
       }
@@ -100,6 +107,7 @@ int write_file_to_table(int* size_pointer_row, int* size_pointer_column, int** a
   }
   return 0;
 }
+
 int verify_treasure_struct(Treasure treasure){
   int i,j;
   printf("TREASURE SIZE_PERCENTAGES: %d\n", treasure.size_percentages);
@@ -138,7 +146,7 @@ int verify_treasure_struct(Treasure treasure){
 * These structures are accessed by later functions to calculate the actual treasure generated
 * via simulated dice rolls.
 **/
-int read_file_to_struct(int num_levels, TreasureClassification t_classification, FILE *file_pointer){
+int read_file_to_struct(int num_levels, TreasureClassification t_classification, void** struct_array_pointer, FILE *file_pointer){
   if(file_pointer == NULL){
     printf("File does not exist. Exiting program.\n");
     return 0;
@@ -149,42 +157,37 @@ int read_file_to_struct(int num_levels, TreasureClassification t_classification,
   if(t_classification < 0 || t_classification > 2){
     return 0;
   }
-  // switch(t_classification){
-  //   case NO_CLASS:
-  //   break;
-  //   case COINS:
-  //
-  //   case GOODS:
-  //   case ITEMS:
-  //   default:
-  // }
-  //These values will be used as iterators in for loops. Generic naming is to maintain DRY code.
   int level;
-  //Allocate memory for an array of Treasure structures.
-  Treasure *treasure = (Treasure *)malloc(sizeof(Treasure) * num_levels);
-  int max_buffer_size = 256;
-  char *line_buffer = (char *)malloc(sizeof(char) * max_buffer_size);
-  if(line_buffer == NULL){
-    printf("Error allocating memory. Exiting program...\n");
-    return 0;
+  if(t_classification == COINS){
+    *struct_array_pointer = malloc(sizeof(Treasure) * num_levels);
+    /**For each level in the coins column of the treasure table, populate a Treasure struct with the appropriate values taken from the file.*/
+    for(level = 0; level < num_levels; level++){
+      initialize_empty_base_treasure(&((Treasure*)*struct_array_pointer)[level], t_classification);
+      write_file_to_table(NULL, &((Treasure*)*struct_array_pointer)[level].size_percentages, &((Treasure*)*struct_array_pointer)[level].percentages, file_pointer);
+      write_file_to_table(&((Treasure*)*struct_array_pointer)[level].size_percentages, &((Treasure*)*struct_array_pointer)[level].size_parameters, &((Treasure*)*struct_array_pointer)[level].table, file_pointer);
+    }/**This marks the end of a treasure struct creation.*/
+    /**Verify that the structs were populated properly*/
+    for(level = 0; level < num_levels; level++){
+      printf("VERIFICATION STEP: LEVEL %d\n", level+1);
+      verify_treasure_struct(((Treasure*)*struct_array_pointer)[level]);
+      printf("VERIFICATION FOR LEVEL %d COMPLETE.\n",level+1);
+    }
   }
-  for(level = 0; level < num_levels; level++){
-    printf("initializing empty treasure...\n");
-    initialize_empty_base_treasure(&treasure[level], t_classification);
+  //TODO: THIS PORTION OF CODE IS NOT TESTED IN ANY CAPACITY. BEWARE.
+  else if(t_classification == GOODS){
+    *struct_array_pointer = malloc(sizeof(GoodsTreasure) * num_levels);
+    for(level = 0; level < num_levels; level++){
+      initialize_empty_goods_treasure(&((GoodsTreasure*)*struct_array_pointer)[level], t_classification);
+      write_file_to_table(NULL, &((GoodsTreasure*)*struct_array_pointer)[level].base_amount_treasure->size_percentages, &((GoodsTreasure*)*struct_array_pointer)[level].base_amount_treasure->percentages, file_pointer);
+      write_file_to_table(&((GoodsTreasure*)*struct_array_pointer)[level].base_amount_treasure->size_percentages, &((GoodsTreasure*)*struct_array_pointer)[level].base_amount_treasure->size_parameters, &((GoodsTreasure*)*struct_array_pointer)[level].base_amount_treasure->table, file_pointer);
+      // printf("Marker for GDB\n");
+    }//This marks the end of a treasure struct creation.
+    for(level = 0; level < num_levels; level++){
+      printf("VERIFICATION STEP: LEVEL %d\n", level+1);
+      verify_treasure_struct(((Treasure*)*struct_array_pointer)[level]);
+      printf("VERIFICATION FOR LEVEL %d COMPLETE.\n",level+1);
+    }
 
-    line_buffer[strcspn(line_buffer, "\r\n")] = 0;
-    // printf("Fetching Percentage Size...\n");
-    //Fetch the size of the percentage array
-    write_file_to_table(NULL, &treasure[level].size_percentages, &treasure[level].percentages, line_buffer, max_buffer_size, file_pointer);
-    write_file_to_table(&treasure[level].size_percentages, &treasure[level].size_parameters, &treasure[level].table, line_buffer, max_buffer_size, file_pointer);
-    printf("Marker for GDB\n");
-  }//This marks the end of a treasure struct creation.
-
-  //Verify that each struct received the proper information from the file.
-  for(level = 0; level < num_levels; level++){
-    printf("VERIFICATION STEP: LEVEL %d\n", level+1);
-    verify_treasure_struct(treasure[level]);
-    printf("VERIFICATION FOR LEVEL %d COMPLETE.\n",level+1);
   }
   return 0;
 }
@@ -193,10 +196,16 @@ int main(void){
   FILE *file_pointer;
   file_pointer = fopen("example_text.txt","r");
   int num_levels = 7;
-  Treasure *coin_treasure_by_level = (Treasure *)malloc(sizeof(Treasure) * num_levels);
-  GoodsTreasure *goods_treasure_by_level = (GoodsTreasure *)malloc(sizeof(GoodsTreasure) * num_levels);
-
-  read_file_to_struct(7, COINS, file_pointer);
+  void* coins_by_level_array;
+  read_file_to_struct(num_levels, COINS, &coins_by_level_array, file_pointer);
+  /**
+  int level;
+  for(level = 0; level < num_levels; level++){
+    printf("VERIFICATION STEP: LEVEL %d\n", level+1);
+    verify_treasure_struct(((Treasure*)coins_by_level_array)[level]);
+    printf("VERIFICATION FOR LEVEL %d COMPLETE.\n",level+1);
+  }
+  */
   fclose(file_pointer);
   return 0;
 }
